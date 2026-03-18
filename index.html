@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 数据安全管控 · 完整链路</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #070b14;
+    --surface: #0d1525;
+    --surface2: #111d33;
+    --border: rgba(99,135,255,0.15);
+    --blue: #4f8eff;
+    --blue-glow: rgba(79,142,255,0.3);
+    --green: #34d399;
+    --green-glow: rgba(52,211,153,0.25);
+    --red: #f87171;
+    --red-glow: rgba(248,113,113,0.25);
+    --yellow: #fbbf24;
+    --yellow-glow: rgba(251,191,36,0.25);
+    --purple: #a78bfa;
+    --purple-glow: rgba(167,139,250,0.25);
+    --cyan: #22d3ee;
+    --text: #e2e8f0;
+    --text-dim: #64748b;
+    --text-muted: #334155;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,142,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,142,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(79,142,255,0.1);
+    border: 1px solid rgba(79,142,255,0.3);
+    border-radius: 100px;
+    padding: 6px 16px;
+    font-size: 12px;
+    color: var(--blue);
+    font-weight: 500;
+    margin-bottom: 20px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .header h1 {
+    font-size: 36px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #fff 0%, #94b4ff 50%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+
+  .header p {
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 500px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin: 28px 0 0;
+    flex-wrap: wrap;
+  }
+
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--blue);
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-bottom: 48px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Main layout: flow + stores */
+  .main-layout {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 32px;
+    align-items: start;
+  }
+
+  /* Flow column */
+  .flow-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  /* Node styles */
+  .node {
+    width: 100%;
+    max-width: 580px;
+    border-radius: 12px;
+    padding: 16px 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    position: relative;
+    transition: all 0.2s;
+  }
+
+  .node:hover {
+    border-color: rgba(99,135,255,0.35);
+    transform: translateY(-1px);
+  }
+
+  .node-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+
+  .node-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .node-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+  }
+
+  .node-layer {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 100px;
+    margin-left: auto;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+  }
+
+  .node-body {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    padding-left: 42px;
+  }
+
+  /* Node colors */
+  .node-blue { border-left: 3px solid var(--blue); }
+  .node-blue .node-icon { background: rgba(79,142,255,0.15); }
+  .node-blue .node-layer { background: rgba(79,142,255,0.15); color: var(--blue); }
+
+  .node-green { border-left: 3px solid var(--green); }
+  .node-green .node-icon { background: rgba(52,211,153,0.15); }
+  .node-green .node-layer { background: rgba(52,211,153,0.15); color: var(--green); }
+
+  .node-red { border-left: 3px solid var(--red); }
+  .node-red .node-icon { background: rgba(248,113,113,0.15); }
+  .node-red .node-layer { background: rgba(248,113,113,0.15); color: var(--red); }
+
+  .node-yellow { border-left: 3px solid var(--yellow); }
+  .node-yellow .node-icon { background: rgba(251,191,36,0.15); }
+  .node-yellow .node-layer { background: rgba(251,191,36,0.15); color: var(--yellow); }
+
+  .node-purple { border-left: 3px solid var(--purple); }
+  .node-purple .node-icon { background: rgba(167,139,250,0.15); }
+  .node-purple .node-layer { background: rgba(167,139,250,0.15); color: var(--purple); }
+
+  .node-cyan { border-left: 3px solid var(--cyan); }
+  .node-cyan .node-icon { background: rgba(34,211,238,0.15); }
+  .node-cyan .node-layer { background: rgba(34,211,238,0.15); color: var(--cyan); }
+
+  /* Arrows */
+  .arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 580px;
+    padding: 4px 0;
+    position: relative;
+  }
+
+  .arrow-line {
+    width: 2px;
+    height: 24px;
+    background: linear-gradient(180deg, rgba(99,135,255,0.5), rgba(99,135,255,0.15));
+  }
+
+  .arrow-head {
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid rgba(99,135,255,0.5);
+  }
+
+  .arrow-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    position: absolute;
+    left: calc(50% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    white-space: nowrap;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Branch section */
+  .branch-section {
+    width: 100%;
+    max-width: 580px;
+  }
+
+  .branch-title {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: center;
+    margin: 4px 0 8px;
+    font-weight: 500;
+  }
+
+  .branch-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+  }
+
+  .branch-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .branch-node {
+    border-radius: 10px;
+    padding: 12px 14px;
+    border: 1px solid;
+    text-align: center;
+    position: relative;
+  }
+
+  .branch-node-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .branch-node-body {
+    font-size: 11px;
+    line-height: 1.5;
+  }
+
+  .branch-red {
+    background: rgba(248,113,113,0.05);
+    border-color: rgba(248,113,113,0.3);
+  }
+  .branch-red .branch-node-title { color: var(--red); }
+  .branch-red .branch-node-body { color: rgba(248,113,113,0.6); }
+
+  .branch-yellow {
+    background: rgba(251,191,36,0.05);
+    border-color: rgba(251,191,36,0.3);
+  }
+  .branch-yellow .branch-node-title { color: var(--yellow); }
+  .branch-yellow .branch-node-body { color: rgba(251,191,36,0.6); }
+
+  .branch-green {
+    background: rgba(52,211,153,0.05);
+    border-color: rgba(52,211,153,0.3);
+  }
+  .branch-green .branch-node-title { color: var(--green); }
+  .branch-green .branch-node-body { color: rgba(52,211,153,0.6); }
+
+  .branch-blue {
+    background: rgba(79,142,255,0.05);
+    border-color: rgba(79,142,255,0.3);
+  }
+  .branch-blue .branch-node-title { color: var(--blue); }
+  .branch-blue .branch-node-body { color: rgba(79,142,255,0.6); }
+
+  .branch-label {
+    position: absolute;
+    top: -9px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 9px;
+    padding: 1px 8px;
+    border-radius: 100px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+
+  .label-l1 { background: rgba(248,113,113,0.2); color: var(--red); }
+  .label-l2 { background: rgba(251,191,36,0.2); color: var(--yellow); }
+  .label-l3 { background: rgba(52,211,153,0.2); color: var(--green); }
+  .label-hit { background: rgba(79,142,255,0.2); color: var(--blue); }
+  .label-miss { background: rgba(100,116,139,0.2); color: var(--text-dim); }
+
+  /* Divider */
+  .section-divider {
+    width: 100%;
+    max-width: 580px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 8px 0;
+  }
+
+  .section-divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .section-divider-text {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* Example box */
+  .example-box {
+    width: 100%;
+    max-width: 580px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid rgba(99,135,255,0.1);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    line-height: 2;
+  }
+
+  .example-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .example-step {
+    color: var(--text-muted);
+    flex-shrink: 0;
+    min-width: 16px;
+  }
+
+  .example-label {
+    flex-shrink: 0;
+    min-width: 80px;
+    color: var(--text-dim);
+  }
+
+  .example-arrow { color: var(--text-muted); }
+
+  .example-content { flex: 1; }
+
+  .c-blue { color: var(--blue); }
+  .c-green { color: var(--green); }
+  .c-yellow { color: var(--yellow); }
+  .c-red { color: var(--red); }
+  .c-purple { color: var(--purple); }
+  .c-cyan { color: var(--cyan); }
+  .c-dim { color: var(--text-dim); }
+  .c-muted { color: var(--text-muted); }
+
+  /* Right column: data stores */
+  .stores-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: sticky;
+    top: 24px;
+  }
+
+  .store-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .store-card-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .store-card-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .store-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+
+  .store-table th {
+    color: var(--text-muted);
+    font-weight: 500;
+    text-align: left;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--border);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .store-table td {
+    padding: 5px 6px;
+    color: var(--text-dim);
+    border-bottom: 1px solid rgba(99,135,255,0.05);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+  }
+
+  .store-table tr:last-child td { border-bottom: none; }
+
+  .badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 9.5px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .badge-red { background: rgba(248,113,113,0.15); color: var(--red); }
+  .badge-yellow { background: rgba(251,191,36,0.15); color: var(--yellow); }
+  .badge-green { background: rgba(52,211,153,0.15); color: var(--green); }
+  .badge-blue { background: rgba(79,142,255,0.15); color: var(--blue); }
+
+  .phase-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(99,135,255,0.06);
+    font-size: 12px;
+  }
+
+  .phase-row:last-child { border-bottom: none; }
+
+  .phase-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: rgba(79,142,255,0.15);
+    color: var(--blue);
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .phase-info { flex: 1; }
+  .phase-name { color: #e2e8f0; font-size: 11.5px; font-weight: 500; }
+  .phase-detail { color: var(--text-muted); font-size: 10px; margin-top: 1px; }
+
+  .phase-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    margin-top: 60px;
+    color: var(--text-muted);
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    padding-top: 24px;
+  }
+
+  /* Connector line to store */
+  .connector {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 580px;
+    height: 0;
+    position: relative;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-badge">🔐 Security Architecture</div>
+    <h1>AI 数据安全管控<br>完整链路</h1>
+    <p>用户查询全程假名化处理，AI 仅接触脱敏数据，真实敏感信息永不进入 AI 上下文</p>
+    <div class="stats-bar">
+      <div class="stat"><span class="stat-value">5</span><span class="stat-label">处理层</span></div>
+      <div class="stat"><span class="stat-value">3</span><span class="stat-label">数据级别</span></div>
+      <div class="stat"><span class="stat-value">4</span><span class="stat-label">脱敏类型</span></div>
+      <div class="stat"><span class="stat-value">0</span><span class="stat-label">真实名进入 AI</span></div>
+    </div>
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--blue)"></div>常规流转</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>检测通过</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>拦截打回</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>判断 / 转换</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--purple)"></div>可选增强</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--cyan)"></div>AI 处理</div>
+  </div>
+
+  <div class="main-layout">
+    <!-- LEFT: Flow -->
+    <div class="flow-column">
+
+      <!-- Node 1: User Input -->
+      <div class="node node-blue">
+        <div class="node-header">
+          <div class="node-icon">💬</div>
+          <div class="node-title">用户输入自然语言查询</div>
+          <div class="node-layer" style="background:rgba(255,255,255,0.06);color:#fff">入口</div>
+        </div>
+        <div class="node-body">例：<span style="color:#fff;font-family:'JetBrains Mono',monospace">「跃动小子 3月的收入是多少？」</span></div>
+      </div>
+
+      <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+      <!-- Node 2: L4 Entity Recognition -->
+      <div class="node node-yellow">
+        <div class="node-header">
+          <div class="node-icon">🔍</div>
+          <div class="node-title">实体识别 · 词库匹配</div>
+          <div class="node-layer">L4 查询层</div>
+        </div>
+        <div class="node-body">
+          扫描用户问题 → 逐词匹配 <code style="background:rgba(251,191,36,0.1);padding:1px 5px;border-radius:3px;font-size:11px;color:var(--yellow)">entity_mapping</code> 真实值列表
+        </div>
+      </div>
+
+      <div class="arrow" style="height:8px"><div class="arrow-line" style="height:12px"></div></div>
+
+      <!-- Branch: hit / miss -->
+      <div class="branch-section">
+        <div class="branch-title">词库匹配结果</div>
+        <div class="branch-grid-2">
+          <div class="branch-node branch-blue">
+            <div class="branch-label label-hit">命中</div>
+            <div class="branch-node-title">🔄 替换假名</div>
+            <div class="branch-node-body">跃动小子<br>→ <strong style="color:var(--blue)">项目-A271</strong></div>
+          </div>
+          <div class="branch-node" style="background:rgba(100,116,139,0.05);border-color:rgba(100,116,139,0.2)">
+            <div class="branch-label label-miss">未命中</div>
+            <div class="branch-node-title" style="color:var(--purple)">🤖 AI 实体抽取</div>
+            <div class="branch-node-body" style="color:rgba(167,139,250,0.6)">轻量模型识别<br>新实体 · 动态建映射</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+      <!-- Node 3: SQL Check -->
+      <div class="node node-yellow">
+        <div class="node-header">
+          <div class="node-icon">📋</div>
+          <div class="node-title">SQL 生成 · 表级别检查</div>
+          <div class="node-layer">L4 查询层</div>
+        </div>
+        <div class="node-body">
+          解析 SQL 涉及的表 → 查询 <code style="background:rgba(251,191,36,0.1);padding:1px 5px;border-radius:3px;font-size:11px;color:var(--yellow)">schema_registry</code> → 判断数据级别
+        </div>
+      </div>
+
+      <div class="arrow" style="height:8px"><div class="arrow-line" style="height:12px"></div></div>
+
+      <!-- Branch: 3 levels -->
+      <div class="branch-section">
+        <div class="branch-title">数据级别判断</div>
+        <div class="branch-grid">
+          <div class="branch-node branch-red">
+            <div class="branch-label label-l1">Level 1</div>
+            <div class="branch-node-title">🚫 直接拦截</div>
+            <div class="branch-node-body">最高级数据<br>禁止 AI 访问<br>返回拒绝提示</div>
+          </div>
+          <div class="branch-node branch-yellow">
+            <div class="branch-label label-l2">Level 2</div>
+            <div class="branch-node-title">🔀 替换孪生视图</div>
+            <div class="branch-node-body">次高级数据<br>finance.app_info<br>→ twin_app_info</div>
+          </div>
+          <div class="branch-node branch-green">
+            <div class="branch-label label-l3">Level 3</div>
+            <div class="branch-node-title">✅ 直接查询</div>
+            <div class="branch-node-body">普通指标<br>金额/订单数等<br>原值透传</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div><div class="arrow-label">脱敏后数据</div></div>
+
+      <!-- Node 4: AI Analysis -->
+      <div class="node node-cyan">
+        <div class="node-header">
+          <div class="node-icon">🤖</div>
+          <div class="node-title">AI 分析处理</div>
+          <div class="node-layer" style="background:rgba(34,211,238,0.1);color:var(--cyan)">AI 层</div>
+        </div>
+        <div class="node-body">
+          接收：<span style="color:var(--cyan)">「项目-A271 3月的收入是多少？」</span> + 孪生视图数据<br>
+          AI 全程仅见假名，<strong style="color:#fff">不知道真实实体名</strong>
+        </div>
+      </div>
+
+      <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+      <!-- Node 5: Second Scan -->
+      <div class="node node-yellow">
+        <div class="node-header">
+          <div class="node-icon">🛡️</div>
+          <div class="node-title">二次扫描 · 敏感信息检测</div>
+          <div class="node-layer">安全校验</div>
+        </div>
+        <div class="node-body">
+          检测 AI 输出是否包含：手机号 · 身份证 · 真实公司名 · 其他原始敏感值
+        </div>
+      </div>
+
+      <div class="arrow" style="height:8px"><div class="arrow-line" style="height:12px"></div></div>
+
+      <!-- Branch: scan result -->
+      <div class="branch-section">
+        <div class="branch-grid-2">
+          <div class="branch-node branch-red">
+            <div class="branch-label label-l1">发现敏感</div>
+            <div class="branch-node-title">🚫 打回</div>
+            <div class="branch-node-body">阻止交付<br>记录安全日志</div>
+          </div>
+          <div class="branch-node branch-green">
+            <div class="branch-label label-l3">全部通过</div>
+            <div class="branch-node-title">✅ 继续</div>
+            <div class="branch-node-body">输出进入<br>反向翻译流程</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+      <!-- Node 6: Reverse Translation -->
+      <div class="node node-green">
+        <div class="node-header">
+          <div class="node-icon">🔁</div>
+          <div class="node-title">反向翻译 · 假名还原</div>
+          <div class="node-layer">L5 响应层</div>
+        </div>
+        <div class="node-body">
+          扫描 AI 输出 → 匹配 <code style="background:rgba(52,211,153,0.1);padding:1px 5px;border-radius:3px;font-size:11px;color:var(--green)">entity_mapping</code> 假名 → 替换回真实名
+        </div>
+      </div>
+
+      <div class="arrow"><div class="arrow-line"></div><div class="arrow-head"></div></div>
+
+      <!-- Node 7: User Output -->
+      <div class="node node-blue" style="border-left-color: var(--green)">
+        <div class="node-header">
+          <div class="node-icon" style="background:rgba(52,211,153,0.15)">✨</div>
+          <div class="node-title">用户收到分析结果</div>
+          <div class="node-layer" style="background:rgba(52,211,153,0.15);color:var(--green)">输出</div>
+        </div>
+        <div class="node-body">例：<span style="color:#fff;font-family:'JetBrains Mono',monospace">「跃动小子 3月收入 1,000,000 元，环比+12%」</span></div>
+      </div>
+
+      <!-- Spacer -->
+      <div style="height: 24px"></div>
+
+      <!-- Example trace -->
+      <div class="section-divider">
+        <div class="section-divider-line"></div>
+        <div class="section-divider-text">完整请求追踪示例</div>
+        <div class="section-divider-line"></div>
+      </div>
+
+      <div class="example-box">
+        <div class="example-row">
+          <span class="example-step c-muted">①</span>
+          <span class="example-label c-dim">用户输入</span>
+          <span class="example-arrow c-muted">→</span>
+          <span class="example-content c-blue">「跃动小子的收入是多少？」</span>
+        </div>
+        <div class="example-row">
+          <span class="example-step c-muted">②</span>
+          <span class="example-label c-dim">实体替换</span>
+          <span class="example-arrow c-muted">→</span>
+          <span class="example-content c-yellow">跃动小子 <span class="c-muted">→</span> 项目-A271</span>
+        </div>
+        <div class="example-row">
+          <span class="example-step c-muted">③</span>
+          <span class="example-label c-dim">表替换</span>
+          <span class="example-arrow c-muted">→</span>
+          <span class="example-content c-yellow">finance.app_info <span class="c-muted">→</span> twin_app_info</span>
+        </div>
+        <div class="example-row">
+          <span class="example-step c-muted">④</span>
+          <span class="example-label c-dim">AI 接收</span>
+          <span class="example-arrow c-muted">→</span>
+          <span class="example-content c-cyan">「项目-A271的收入是多少？」</span>
+        </div>
+        <div class="example-row">
+          <span class="example-step c-muted">⑤</span>
+          <span class="example-label c-dim">AI 输出</span>
+          <span class="example-arrow c-muted">→</span>
+          <span class="example-content c-cyan">「项目-A271 收入 1,000,000」</span>
+        </div>
+        <div class="example-row">
+          <span class="example-step c-muted">⑥</span>
+          <span class="example-label c-dim">二次扫描</span>
+          <span class="example-arrow c-muted">→</span>
+          <span class="example-content c-green">✓ 无敏感信息</span>
+        </div>
+        <div class="example-row">
+          <span class="example-step c-muted">⑦</span>
+          <span class="example-label c-dim">反向翻译</span>
+          <span class="example-arrow c-muted">→</span>
+          <span class="example-content c-green">项目-A271 <span class="c-muted">→</span> 跃动小子</span>
+        </div>
+        <div class="example-row">
+          <span class="example-step c-muted">⑧</span>
+          <span class="example-label c-dim">用户看到</span>
+          <span class="example-arrow c-muted">→</span>
+          <span class="example-content" style="color:#fff">「跃动小子 收入 1,000,000」</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: Stores -->
+    <div class="stores-column">
+
+      <!-- Schema Registry -->
+      <div class="store-card">
+        <div class="store-card-title">
+          <div class="store-card-dot" style="background:var(--yellow)"></div>
+          <span style="color:var(--yellow)">Schema Registry</span>
+        </div>
+        <table class="store-table">
+          <thead><tr><th>字段</th><th>级别</th><th>类型</th></tr></thead>
+          <tbody>
+            <tr><td>user.phone</td><td><span class="badge badge-red">L1</span></td><td style="color:var(--text-dim)">REGEX</td></tr>
+            <tr><td>user.id_card</td><td><span class="badge badge-red">L1</span></td><td style="color:var(--text-dim)">REGEX</td></tr>
+            <tr><td>app.app_name</td><td><span class="badge badge-yellow">L2</span></td><td style="color:var(--text-dim)">ENTITY</td></tr>
+            <tr><td>company.name</td><td><span class="badge badge-yellow">L2</span></td><td style="color:var(--text-dim)">ENTITY</td></tr>
+            <tr><td>order.amount</td><td><span class="badge badge-green">L3</span></td><td style="color:var(--text-dim)">NONE</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Entity Mapping -->
+      <div class="store-card">
+        <div class="store-card-title">
+          <div class="store-card-dot" style="background:var(--blue)"></div>
+          <span style="color:var(--blue)">Entity Mapping</span>
+        </div>
+        <table class="store-table">
+          <thead><tr><th>真实值</th><th>假名</th></tr></thead>
+          <tbody>
+            <tr><td>跃动小子</td><td style="color:var(--blue)">项目-A271</td></tr>
+            <tr><td>腾讯科技</td><td style="color:var(--blue)">主体-B093</td></tr>
+            <tr><td>张三</td><td style="color:var(--blue)">用户-C512</td></tr>
+            <tr><td>星光游戏</td><td style="color:var(--blue)">项目-D084</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Twin Views -->
+      <div class="store-card">
+        <div class="store-card-title">
+          <div class="store-card-dot" style="background:var(--green)"></div>
+          <span style="color:var(--green)">孪生视图层</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-dim);line-height:1.7;">
+          <div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+            <div style="color:#fff;margin-bottom:2px">twin_app_info</div>
+            <div class="c-muted">app_name → 假名 (JOIN mapping)</div>
+          </div>
+          <div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+            <div style="color:#fff;margin-bottom:2px">twin_user</div>
+            <div class="c-muted">phone → 138****1234</div>
+            <div class="c-muted">id_card → 4101**********001</div>
+          </div>
+          <div>
+            <div style="color:#fff;margin-bottom:2px">twin_company</div>
+            <div class="c-muted">name → 假名 (JOIN mapping)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Roadmap -->
+      <div class="store-card">
+        <div class="store-card-title">
+          <div class="store-card-dot" style="background:var(--purple)"></div>
+          <span style="color:var(--purple)">落地路线</span>
+        </div>
+        <div class="phase-row">
+          <div class="phase-num">P0</div>
+          <div class="phase-info">
+            <div class="phase-name">建 schema_registry</div>
+            <div class="phase-detail">配置存量敏感字段</div>
+          </div>
+          <div class="phase-time">1w</div>
+        </div>
+        <div class="phase-row">
+          <div class="phase-num">P1</div>
+          <div class="phase-info">
+            <div class="phase-name">手机/身份证脱敏</div>
+            <div class="phase-detail">REGEX mask + 孪生视图</div>
+          </div>
+          <div class="phase-time">1w</div>
+        </div>
+        <div class="phase-row">
+          <div class="phase-num">P2</div>
+          <div class="phase-info">
+            <div class="phase-name">实体假名映射</div>
+            <div class="phase-detail">离线建 mapping_store</div>
+          </div>
+          <div class="phase-time">2w</div>
+        </div>
+        <div class="phase-row">
+          <div class="phase-num">P3</div>
+          <div class="phase-info">
+            <div class="phase-name">视图自动生成</div>
+            <div class="phase-detail">schema_registry 驱动</div>
+          </div>
+          <div class="phase-time">1w</div>
+        </div>
+        <div class="phase-row">
+          <div class="phase-num">P4</div>
+          <div class="phase-info">
+            <div class="phase-name">查询重写 + 反向翻译</div>
+            <div class="phase-detail">全链路闭环</div>
+          </div>
+          <div class="phase-time">2w</div>
+        </div>
+        <div class="phase-row" style="border-bottom:none">
+          <div class="phase-num" style="background:rgba(167,139,250,0.15);color:var(--purple)">P5</div>
+          <div class="phase-info">
+            <div class="phase-name">AI 实体抽取</div>
+            <div class="phase-detail">长尾未命中兜底</div>
+          </div>
+          <div class="phase-time" style="color:var(--purple)">按需</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footer">
+    Generated by 小D · DataClaw &nbsp;·&nbsp; AI 数据安全管控 完整链路 &nbsp;·&nbsp; 2026
+  </div>
+
+</div>
+</body>
+</html>
+HTMLEOF
